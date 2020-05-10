@@ -11,6 +11,7 @@
 
 <body>
     <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+
     <div id="app">
         <div class="header">
             <div class="pokemon">
@@ -19,7 +20,8 @@
                 </div>
                 <div class="pokemon-bar">
                     <div class="health-bar">
-                        <div style="width: 100%;" class="health-bar-level"></div>
+                        <div :style="{width: p1Health + '%'}" class="health-bar-level"></div>
+                        <div class="health-amount">{{ p1Health }}</div>
                     </div>
                 </div>
             </div>
@@ -29,28 +31,30 @@
                 </div>
                 <div class="pokemon-bar">
                     <div class="health-bar">
-                        <div style="width: 100%;" class="health-bar-level"></div>
+                        <div :style="{width: p2Health + '%'}" class="health-bar-level"></div>
+                        <div class="health-amount">{{ p2Health }}</div>
                     </div>
                 </div>
             </div>
         </div>
         <div class="main-menu">
-            <p>Lorem ipsum dolor sit amet consectetur adipisicing elit. Consequuntur maiores nihil beatae soluta quam
-                reiciendis, reprehenderit dicta, suscipit cumque cum corrupti doloremque vitae quos. Ipsum suscipit
-                doloremque neque dolorum consequuntur.</p>
-            <div class="button">> Start Game</div>
-            <div class="main-buttons">
-                <div class="btn red">Attack</div>
-                <div class="btn yellow">Special Attack</div>
-                <div class="btn green">Heal</div>
-                <div class="btn white">Give Up</div>
+            <template v-if="!gameIsRunning">
+                <p>Lorem ipsum dolor sit amet consectetur adipisicing elit. Consequuntur maiores nihil beatae soluta
+                    quam
+                    reiciendis, reprehenderit dicta, suscipit cumque cum corrupti doloremque vitae quos. Ipsum suscipit
+                    doloremque neque dolorum consequuntur.</p>
+                <div class="button" @click="startGame">> Start Game</div>
+            </template>
+            <div class="main-buttons" v-else>
+                <div @click="attack" class="btn red">Attack</div>
+                <div @click="specialAttack" class="btn yellow">Special Attack</div>
+                <div @click="heal" class="btn green">Heal</div>
+                <div @click="giveUp" class="btn white">Give Up</div>
             </div>
         </div>
-        <div class="log">
-            <p>> Le hiciste 2 puntos de daño</p>
-            <p>> Te curaste 3 puntos</p>
-            <p>> Fallaste</p>
-            <p>> Recibiste 3 de daño</p>
+        <div class="log" v-if="gameIsRunning">
+            <p v-if="turns.length == 0">Lanza el primer ataque</p>
+            <p v-for="turn in turns" :class="{'red': !turn.isPlayer1}">> {{ turn.text }}</p>
         </div>
     </div>
 
@@ -58,10 +62,98 @@
         new Vue({
             el: '#app',
             data: {
+                gameIsRunning: false,
+                p1Health: 100,
+                p2Health: 100,
+                turns: []
             },
             computed: {
             },
             methods: {
+                startGame() {
+                    this.gameIsRunning = true;
+                    this.p1Health = 100;
+                    this.p2Health = 100;
+                    this.turns = [];
+                },
+                attack() {
+                    let damage = this.calculateDamage(3, 10)
+                    this.p2Health -= damage;
+
+                    this.turns.push({
+                        isPlayer1: true,
+                        text: `Le hiciste ${damage} puntos de daño`
+                    });
+
+                    if (this.checkWin()) {
+                        return;
+                    }
+
+                    this.p2Attacks();
+                },
+                specialAttack() {
+                    let damage = this.calculateDamage(10, 20);
+                    this.p2Health -= damage;
+
+                    this.turns.push({
+                        isPlayer1: true,
+                        text: `Le hiciste ${damage} puntos de daño con el ataque especial`
+                    });
+
+                    if (this.checkWin()) {
+                        return;
+                    }
+
+                    this.p2Attacks();
+                },
+                heal() {
+                    if (this.p1Health <= 90) {
+                        this.p1Health += 10;
+                    } else {
+                        this.p1Health = 100;
+                    }
+
+                    this.turns.push({
+                        isPlayer1: true,
+                        text: `Te curaste 10 puntos de salud`
+                    });
+
+                    this.p2Attacks();
+                },
+                giveUp() {
+                    this.gameIsRunning = false;
+                },
+                p2Attacks() {
+                    let damage = this.calculateDamage(5, 12)
+                    this.p1Health -= damage;
+
+                    this.turns.push({
+                        isPlayer1: false,
+                        text: `Recibiste ${damage} puntos de daño`
+                    });
+                    this.checkWin();
+                },
+                calculateDamage(min, max) {
+                    return damage = Math.max(Math.floor(Math.random() * max) + 1, min);
+                },
+                checkWin() {
+                    if (this.p2Health <= 0) {
+                        if (confirm('Ganaste, Nuevo juego?')) {
+                            this.startGame();
+                        } else {
+                            this.gameIsRunning = false;
+                        }
+                        return true;
+                    } else if (this.p1Health <= 0) {
+                        if (confirm('Perdiste, Nuevo juego?')) {
+                            this.startGame();
+                        } else {
+                            this.gameIsRunning = false;
+                        }
+                        return true;
+                    }
+                    return false;
+                }
             }
         });
     </script>
@@ -105,6 +197,7 @@
         }
 
         .health-bar {
+            position: relative;
             width: 80%;
             height: 50%;
             border: 1px solid #f5f6fa;
@@ -114,6 +207,14 @@
             height: 100%;
             transition-duration: 0.3s;
             background-color: #e84118;
+        }
+
+        .health-amount {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #fff;
         }
 
         .main-menu,
@@ -131,10 +232,15 @@
             justify-content: space-around;
         }
 
+        .button {
+            cursor: pointer;
+        }
+
         .btn {
             padding: 0.7rem;
             display: inline-block;
             cursor: pointer;
+            transition-duration: 0.3s;
         }
 
         .btn:hover {
@@ -159,6 +265,10 @@
 
         .log {
             margin-top: 2rem;
+        }
+
+        .red {
+            color: #e84118;
         }
     </style>
 </body>
